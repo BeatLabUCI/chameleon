@@ -170,6 +170,13 @@ def normalize_data_ci(y, mean, std, n_std=2.0):
 
 def convert_data(df_mean, df_std, meta=None, growth=False, csv_dir=None, csv_name=None):
     """Convert wide format mean and standard deviation data to format used in the Wave class"""
+
+    # Convert to pandas if not already
+    if not isinstance(df_mean, pd.DataFrame):
+        df_mean = pd.DataFrame(df_mean)
+    if not isinstance(df_std, pd.DataFrame):
+        df_std = pd.DataFrame(df_std)
+
     if growth:
         # Add day labels to column names
         df_mean.index = ["mu_d" + str(i) for i in df_mean.index]

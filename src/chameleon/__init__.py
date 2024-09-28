@@ -1,8 +1,8 @@
 from chameleon.camouflage import Camouflage
-from chameleon.colors import Colors
+from chameleon.colors import TrueColors
 
 
 __all__ = (
     'Camouflage',
-    'Colors'
+    'TrueColors'
 )

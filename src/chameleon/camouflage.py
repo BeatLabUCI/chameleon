@@ -24,7 +24,7 @@ class Camouflage:
     outputs to train GPEs that are used to determine the NROY region of the provided parameter space.
     """
 
-    def __init__(self, wave_number, root_dir, threshold, pars, data_df, x_target=None, nroy=None, clear_log=False,
+    def __init__(self, wave_number, root_dir, threshold, pars, data_df, nroy=None, clear_log=False,
                  n_emu0=2 ** 20, n_emu_min=1e5, n_sim=2 ** 7, n_posterior=2 ** 8, plot_cols=4, log_file="bhm.log",
                  constants=None, prior_dir=None, prior_names=None, posterior_label="Posterior", clear_dir=False,
                  validation=False, x_posterior=None, y_posterior=None, os_compatibility=False,
@@ -57,26 +57,34 @@ class Camouflage:
         if self.n_y < plot_cols:
             plot_cols = self.n_y
         self.plot_shape_y = [int(np.ceil(self.n_y / plot_cols)), plot_cols]
+        if self.n_x < plot_cols:
+            plot_cols = self.n_x
+        self.plot_shape_x = [int(np.ceil(self.n_x / plot_cols)), plot_cols]
 
         # Get parameter information
         self.x_names = []
         self.x_cats = []
         self.x_limits = np.empty((2, self.n_x))
+        self.x_target = []
         for i_par, key in enumerate(pars):
             self.x_names.append(key)
             self.x_limits[:, i_par] = pars[key]["limits"]
             if "category" in pars[key]:
                 self.x_cats.append(pars[key]["category"])
+            if "target" in pars[key]:
+                self.x_target.append(pars[key]["target"])
 
+        # Disable categories and target if not provided
         if len(self.x_cats) == 0:
             self.x_cats = [str(el) for el in list(range(self.n_y))]
-        self.x_target = x_target
+        if len(self.x_target) == 0:
+            self.x_target = None
 
         # Create directory for wave and simulations
-        self.dir = root_dir / self.name
         if clear_dir:
-            if self.dir.exists():
-                shutil.rmtree(self.dir)
+            if root_dir.exists():
+                shutil.rmtree(root_dir)
+        self.dir = root_dir / self.name
         self.dir_sim = self.dir / sim_dir_name
         self.dir_gpe = self.dir / gpe_dir_name
         self.dir_sim.mkdir(exist_ok=True, parents=True)
@@ -626,8 +634,7 @@ class Camouflage:
             self.x_scaler = wave.x_scaler
             self.y_scaler = wave.y_scaler
 
-
-    def find_nroy(self):
+    def find_nroy(self, plot_nroy=True):
         """Use the implausibility score to identify the NROY region for this wave"""
 
         # Calculate implausibility of each emulated y
@@ -645,7 +652,8 @@ class Camouflage:
         self.nroy_implausibility = self.implausibility[self.i_nroy]
 
         update_log(self.log_file, str(int(self.nroy.shape[0])) +
-                   " points remaining in NROY region after implausibility check")
+                   " points remaining in NROY region (" + str(round(self.nroy.shape[0] / self.n_emu0 * 100, 2)) +
+                   "% of original space)")
 
         # Find y that is the most implausible
         i_max = np.argmax(self.implausibility_y, axis=1)
@@ -654,6 +662,10 @@ class Camouflage:
 
         update_log(self.log_file, str(self.y_names[i_max]) + " is the most implausible output ("
                    + str(round(counts[np.argmax(counts)] / np.sum(counts) * 100, 2)) + "% of all points)")
+
+        # Plot NROY region
+        if plot_nroy:
+            self.plot_nroy()
 
     def remove_non_physiological(self):
         """Remove non-physiological points from NROY region"""
@@ -868,6 +880,56 @@ class Camouflage:
         plt.tight_layout()
         plt.savefig(self.dir / fig_name, bbox_inches='tight')
         plt.close()
+
+    def plot_nroy(self, fig_name="nroy.pdf", show_fig=False, save_fig=True):
+
+        self.plot_nroy_kdes(self.x_names, self.plot_shape_x, self.x_emu, self.nroy, observed=self.x_target,
+                            fig_name=fig_name.split(".")[0] + "_x." + fig_name.split(".")[1],
+                            show_fig=show_fig, save_fig=save_fig)
+
+        self.plot_nroy_kdes(self.y_names, self.plot_shape_y, self.y_emu, self.nroy_y,
+                            observed=self.y_observed, sigma_observed=self.sigma_observed,
+                            fig_name=fig_name.split(".")[0] + "_y." + fig_name.split(".")[1],
+                            show_fig=show_fig, save_fig=save_fig)
+
+    def plot_nroy_kdes(self, names, shape, emu, nroy, observed=None, sigma_observed=None,
+                       fig_name="nroy.pdf", show_fig=False, save_fig=True):
+        """Plot NROY region y values"""
+
+        colors = sns.color_palette("cubehelix", len(names))
+        legend_labels = ['Emulated', 'NROY']
+        if observed is not None:
+            legend_labels.append('Observed')
+            if sigma_observed is not None:
+                legend_labels.append(r"$2\sigma$")
+
+        fig = plt.figure(figsize=(2.5 * shape[1], 2.5 * shape[0]))
+
+        for i in range(len(names)):
+            ax = fig.add_subplot(shape[0], shape[1], i + 1)
+            ax.set_title(names[i])
+            sns.kdeplot(data=emu[:, i], ax=ax, fill=True, color=colors[i], alpha=0.2)
+            sns.kdeplot(data=nroy[:, i], ax=ax, fill=True, color=colors[i], alpha=0.8)
+            if observed is not None:
+                ax.axvline(x=observed[i], color='k', linestyle='-')
+                if sigma_observed is not None:
+                    ax.axvline(x=observed[i] - 2 * sigma_observed[i], color='k', linestyle='--')
+                    ax.axvline(x=observed[i] + 2 * sigma_observed[i], color='k', linestyle='--')
+
+            # Only set ylabel in the leftmost column
+            if i % shape[1] == 0:
+                ax.set(ylabel='Probability density')
+            else:
+                ax.set(ylabel="")
+
+        # Set legend
+        fig.legend(labels=legend_labels, loc='upper center', ncol=4, frameon=False, bbox_to_anchor=(0.4, 1.1))
+
+        plt.tight_layout()
+        if save_fig:
+            plt.savefig(self.dir / fig_name, bbox_inches='tight')
+        if not show_fig:
+            plt.close()
 
     def sobol_sensitivity(self, n_samples=2 ** 15):
         """Perform Sobol sensitivity analysis this wave's trained GPEs and parameter space"""

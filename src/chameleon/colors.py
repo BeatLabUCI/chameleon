@@ -10,7 +10,7 @@ from mne_connectivity.viz import plot_connectivity_circle
 from .utils import scale, sort_nicely, label, get_cat_colors, normalize_data_ci
 
 
-class Colors:
+class TrueColors:
     """
     Plots results of completed waves of a history matching process. A tide contains a series of waves.
     """
@@ -118,8 +118,14 @@ class Colors:
         self.plot_sensitivity_circles(show_fig=show_fig)
         self.plot_connectivity(show_fig=show_fig)
 
-    def plot_waves_y(self, show_fig=False, n_samples=None):
+    def plot_waves_y(self, show_fig=False, n_samples=None, y_names=None):
         """Plot the wave evolution of the NROY y values and the observed mean and 95% confidence interval"""
+
+        # Find index if y_names that were specified
+        if y_names is not None:
+            y_indices = [self.y_names.index(y_name) for y_name in y_names]
+        else:
+            y_indices = range(self.n_y)
 
         # Start with initial
         df_nroy = pd.DataFrame(data=self.waves[0].y_emu, columns=self.y_names)
@@ -133,13 +139,19 @@ class Colors:
                 df = df.sample(n_samples)
             df_nroy = pd.concat([df_nroy, df])
 
-        for i_y in range(self.n_y):
+        for i_y in y_indices:
             self.plot_waves(df_nroy, self.y_names[i_y], filename="waves_y_" + self.y_names[i_y] + ".pdf",
                             mean_observed=self.y_observed[i_y], sigma_observed=self.sigma_observed[i_y],
                             show_fig=show_fig)
 
-    def plot_waves_x(self, show_fig=False, n_samples=None):
+    def plot_waves_x(self, show_fig=False, n_samples=None, x_names=None):
         """Plot the wave evolution of the NROY values"""
+
+        # Find index if x_names that were specified
+        if x_names is not None:
+            x_indices = [self.x_names.index(x_name) for x_name in x_names]
+        else:
+            x_indices = range(self.n_x)
 
         # Start with initial
         df_nroy = pd.DataFrame(data=self.waves[0].x_emu, columns=self.x_names)
@@ -153,7 +165,7 @@ class Colors:
                 df = df.sample(n_samples)
             df_nroy = pd.concat([df_nroy, df])
 
-        for i_x in range(self.n_x):
+        for i_x in x_indices:
             xlim = [self.x_limits[0, i_x] - 0.5*np.mean(self.x_limits[:, i_x]),
                     self.x_limits[1, i_x] + 0.5*np.mean(self.x_limits[:, i_x])]
             if self.x_target is None:
@@ -393,8 +405,8 @@ class Colors:
                     plt.show()
                 plt.close()
 
-    def plot_sensitivity_total(self, filepath=None, filename="gsa.pdf", show_fig=False, cutoff=0.90, fontsize=8,
-                               order="ST"):
+    def plot_sensitivity_total(self, filepath=None, filename="gsa.pdf", show_bar=False, show_circle=False,
+                               cutoff=0.90, fontsize=8, order="ST"):
         """Plot results of Sobol sensitivity analysis, total sensitivity only"""
 
         if not filepath:
@@ -446,7 +458,7 @@ class Colors:
                 plt.tight_layout()
                 plt.savefig(filepath / str(filename.split(".")[0] + "_total_" + wave.name + "." +
                                            filename.split(".")[1]), bbox_inches='tight')
-                if show_fig:
+                if show_bar:
                     plt.show()
                 plt.close()
 
@@ -464,7 +476,7 @@ class Colors:
                 plt.tight_layout()
                 plt.savefig(filepath / str(filename.split(".")[0] + "_total_pie_" + wave.name + "." +
                                              filename.split(".")[1]), bbox_inches='tight')
-                if show_fig:
+                if show_circle:
                     plt.show()
                 plt.close()
 
@@ -606,7 +618,6 @@ class Colors:
             for i in range(len(self.x_names_matched)):
                 g.axes[i, i].axvline(self.x_target[i], color=[0.5, 0.5, 0.5], linestyle='-', linewidth=1)
 
-        g.fig.suptitle('Parameter space in NROY region after ' + wave.name)
         plt.savefig(filepath / str(filename.split(".")[0] + "_" + wave.name + "." + filename.split(".")[1]), bbox_inches='tight')
 
         if show_fig:
@@ -655,7 +666,6 @@ class Colors:
                 for j in range(i):
                     g.axes[i, j].set_ylim([self.y_observed[i] - 3 * self.sigma_observed[i], self.y_observed[i] + 3 * self.sigma_observed[i]])
 
-        g.fig.suptitle('Output space in NROY region after ' + wave.name)
         plt.savefig(filepath / str(filename.split(".")[0] + "_" + wave.name + "." + filename.split(".")[1]), bbox_inches='tight')
 
         if show_fig:
@@ -692,7 +702,15 @@ class Colors:
                          despine=False, palette=self.cmap_waves)
         g.map(sns.scatterplot, edgecolor=None, s=5)        # Used to be s=15
         g.add_legend(fontsize="small", title="")
-        g._legend.set_bbox_to_anchor((0.65, 0.77))
+        g._legend.set_bbox_to_anchor((0.65, 0.85))
+
+        # Set limits for all axes using x_limits
+        for i in range(len(self.x_names)):
+            for j in range(i):
+                g.axes[i, j].set_xlim([self.x_limits[0, j], self.x_limits[1, j]])
+                g.axes[i, j].set_ylim([self.x_limits[0, i], self.x_limits[1, i]])
+
+        # Save figure
         g.savefig(filepath / filename, bbox_inches='tight', dpi=300)
 
         if show_fig:
@@ -715,7 +733,6 @@ class Colors:
         g.map(sns.scatterplot, edgecolor=None, s=15, alpha=0.1, color=self.cmap_waves[int(self.n_waves/2)])
         g.add_legend(fontsize="small", title="")
 
-        g.fig.suptitle("Simulation data cloud")
         g.savefig(filepath / filename, bbox_inches='tight', dpi=300)
 
         if show_fig:
