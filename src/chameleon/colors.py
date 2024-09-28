@@ -10,7 +10,7 @@ from mne_connectivity.viz import plot_connectivity_circle
 from .utils import scale, sort_nicely, label, get_cat_colors, normalize_data_ci
 
 
-class Camouflage:
+class Colors:
     """
     Plots results of completed waves of a history matching process. A tide contains a series of waves.
     """

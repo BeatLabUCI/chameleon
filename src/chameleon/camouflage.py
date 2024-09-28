@@ -16,7 +16,7 @@ from .gpe_pytorch import ExactGPModel, MultitaskGPModel
 from .utils import scale, unscale, sample_space, sort_nicely, diversipy_sampling, create_log, update_log
 
 
-class Wave:
+class Camouflage:
     """
     Single wave of Bayesian history matching process. This class is suitable to a multivariate input and output problem.
     It was originally designed for use with cardiogrowth but can be used with any type of model. Mind that this method
