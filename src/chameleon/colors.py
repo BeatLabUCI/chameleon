@@ -95,9 +95,6 @@ class TrueColors:
 
         self.plot_implausibility_density()
         self.plot_implausibility_counts()
-        self.plot_sensitivity_matrix()
-        self.plot_sensitivity_matrix()
-        self.roll_sensitivity()
         self.plot_nroy_data()
         self.plot_sim_space()
         self.plot_nroy_x(n_samples=n_samples)
@@ -368,7 +365,7 @@ class TrueColors:
         return sensitivity_matrix
 
     def plot_sensitivity_matrix(self, filepath=None, filename="gsa.pdf", order="ST", show_fig=False,
-                                x_fontsize=10, y_fontsize=10, tile_size=0.25):
+                                x_fontsize=10, y_fontsize=10, tile_size=1):
         """Plot results of Sobol sensitivity analysis"""
 
         if not filepath:

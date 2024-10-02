@@ -54,12 +54,6 @@ class Camouflage:
         # Calculate and store data dimensions
         self.n_x = len(pars)
         self.n_y = self.y_observed.size
-        if self.n_y < plot_cols:
-            plot_cols = self.n_y
-        self.plot_shape_y = [int(np.ceil(self.n_y / plot_cols)), plot_cols]
-        if self.n_x < plot_cols:
-            plot_cols = self.n_x
-        self.plot_shape_x = [int(np.ceil(self.n_x / plot_cols)), plot_cols]
 
         # Get parameter information
         self.x_names = []
@@ -93,7 +87,8 @@ class Camouflage:
         # Check if log file does not exist in the root directory, if not create it
         self.log_file = root_dir / log_file
         if clear_log:
-            create_log(self.log_file, self.x_names, self.x_limits, self.y_names, self.y_observed, self.sigma_observed, self.constants)
+            create_log(self.log_file, self.x_names, self.x_limits, self.y_names, self.y_observed, self.sigma_observed,
+                       self.constants, self.x_target)
 
         # Start wave log
         update_log(self.log_file, "\n" + len(self.name) * "-" + "\n" + self.name + "\n" + len(self.name) * "-")
@@ -144,6 +139,14 @@ class Camouflage:
         self.y_emu = self.y_emu_variance = self.implausibility_y = np.empty(0)
         self.nroy_y = self.nroy_variance = self.nroy_implausibility = self.nroy_y_variance = np.empty(0)
         self.x_scaler = self.y_scaler = None
+
+        # Set plot shapes
+        if self.n_y < plot_cols:
+            plot_cols = self.n_y
+        self.plot_shape_y = [int(np.ceil(self.n_y / plot_cols)), plot_cols]
+        if self.n_x < plot_cols:
+            plot_cols = self.n_x
+        self.plot_shape_x = [int(np.ceil(self.n_x / plot_cols)), plot_cols]
 
     def surf(self, sensitivity=False, export_csv=False, export_pickle=True, print_summary=False, pickle_name="wave"):
         """Wrapper function to run all the functions required to complete a full wave. Exports wave as pickle"""
@@ -327,8 +330,19 @@ class Camouflage:
         self.x_limits = np.hstack((self.x_limits, np.array([np.min(prior.nroy[:, i_prior], axis=0),
                                                             np.max(prior.nroy[:, i_prior], axis=0)])))
 
+        # Add categories
+        if prior.x_cats is not None:
+            self.x_cats.extend([prior.x_cats[i] for i in i_prior])
+
+        # Add target
+        if prior.x_target is not None:
+            self.x_target.extend([prior.x_target[i] for i in i_prior])
+
         # Keep track of which are priors
         self.prior_names = [prior.x_names[i] for i in i_prior]
+
+        # Update n_x
+        self.n_x = len(self.x_names)
 
         # Add priors to log
         if self.wave_number == 0:
