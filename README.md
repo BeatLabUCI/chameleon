@@ -30,7 +30,7 @@ pip install .
 ### Checking your installation
 To check that CHAMELEON has been installed correctly, open a Python interpreter (with the correct virtual environment if applicable) and run:
 ```
-import monarch
+import chameleon
 ```
 
 ## Using CHAMELEON

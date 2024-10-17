@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numpy>=2.1.1",
+    "numpy==2.0.2",
     "pandas>=2.2.3",
     "seaborn>=0.13.2",
     "matplotlib>=3.9.2",
