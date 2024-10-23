@@ -111,8 +111,8 @@ class TrueColors:
     def roll_sensitivity(self, show_fig=False):
         """Wrapper to run all plot functions with default values for sensitivity analysis"""
         self.plot_sensitivity_matrix(show_fig=show_fig)
-        self.plot_sensitivity_total(show_fig=show_fig)
-        self.plot_sensitivity_circles(show_fig=show_fig)
+        self.plot_sensitivity_total(show_bar=True, show_circle=True)
+        # self.plot_sensitivity_circles()
         self.plot_connectivity(show_fig=show_fig)
 
     def plot_waves_y(self, show_fig=False, n_samples=None, y_names=None):
