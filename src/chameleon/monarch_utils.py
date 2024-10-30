@@ -703,9 +703,6 @@ def load_sim_data_growth(sim_dir, x_labels, y_labels, time_turner="_d"):
     # Pre-allocate arrays to store x
     x_sims = np.empty((0, len(x_labels)))
 
-    # Create empty dataframe
-    df_sims = pd.DataFrame(columns=["sim_id", "time"] + y_labels)
-
     # Get all simulation results
     for i_sim, sim, par in zip(range(len(sims)), sims, pars):
 
@@ -731,7 +728,10 @@ def load_sim_data_growth(sim_dir, x_labels, y_labels, time_turner="_d"):
         df["time"] = time_g
 
         # Add df to df_sim
-        df_sims = pd.concat([df_sims, df])
+        if i_sim == 0:
+            df_sims = df
+        else:
+            df_sims = pd.concat([df_sims, df])
 
     return x_sims, df_sims
 
