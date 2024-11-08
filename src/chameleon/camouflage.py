@@ -875,7 +875,7 @@ class Camouflage:
 
         fig = plt.figure(figsize=(2.5 * self.plot_shape_y[1], 2.5 * self.plot_shape_y[0]))
 
-        # Plot R2 ald correlaiton for every y variable
+        # Plot R2 ald correlation for every y variable
         for i_y in range(self.n_y):
             ax = fig.add_subplot(self.plot_shape_y[0], self.plot_shape_y[1], i_y + 1)
 
