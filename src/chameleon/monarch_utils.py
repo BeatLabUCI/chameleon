@@ -22,7 +22,7 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
                    run_sims=True, remove_outliers=False, time_ticks=None, growth_type="transverse",
                    fig_name="sim_results", show_fig=False, v_ticks=(0, 50, 100, 150), p_ticks=(0, 50, 100, 150),
                    segment_lfw=0, segment_rfw=1, segment_sw=2, percentile=0.95, shortening_data=None,
-                   show_hemo=False, show_stretch=False):
+                   show_hemo=False, show_stretch=False, plot_only_all=False):
     """Wrapper function to run, analyze, and import model simulations"""
 
     # Specify directory to store simulations in
@@ -66,7 +66,7 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
     if growth:
         # Plot growth results
         plot_sims_growth(file_path, fig_dir, wave.x_names, wave.y_names, wave.y_observed, wave.sigma_observed,
-                         time_ticks=time_ticks, show_fig=show_fig, fig_name=fig_name)
+                         time_ticks=time_ticks, show_fig=show_fig, fig_name=fig_name, only_all=plot_only_all)
     else:
         # Plot model results
         plot_sims(file_path, fig_dir, x_labels=wave.x_names, fig_name=fig_name, show_fig=show_fig, show_hemo=show_hemo,

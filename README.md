@@ -11,12 +11,6 @@ It is recommended to install CHAMELEON in a virtual environment. To create a vir
 conda create -n chameleon python=3.12
 conda activate chameleon
 ```
-### Installing using pip (not yet available)
-
-CHAMELEON can be installed using pip:
-```
-pip install chameleon-beatlab
-```
 ### Installing from source
 Download the latest source code from Github. From a terminal window in the directory where you want to download and install the MONARCH source code, run:
 ```
