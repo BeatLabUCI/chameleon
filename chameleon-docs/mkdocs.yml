@@ -1,0 +1,5 @@
+site_name: Chameleon Python Package
+nav:
+  - Home: index.md
+  - Simple Demo: demo_simple.md
+  - Advanced Demo: demo_monarch.md
