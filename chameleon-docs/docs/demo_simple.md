@@ -53,7 +53,7 @@ plt.show()
 
 
     
-![png](../demo_simple_files/demo_simple_5_0.png)
+![png](demo_simple_files/demo_simple_5_0.png)
     
 
 
@@ -175,7 +175,7 @@ plt.show()
 
 
     
-![png](../demo_simple_files/demo_simple_13_0.png)
+![png](demo_simple_files/demo_simple_13_0.png)
     
 
 
@@ -226,7 +226,7 @@ plot_sims(t[i_sample], data_mean, data_std, t, y)
 
 
     
-![png](../demo_simple_files/demo_simple_17_0.png)
+![png](demo_simple_files/demo_simple_17_0.png)
     
 
 
@@ -245,7 +245,7 @@ wave.plot_r2(show_fig=True)
 
 
     
-![png](../demo_simple_files/demo_simple_19_1.png)
+![png](demo_simple_files/demo_simple_19_1.png)
     
 
 
@@ -270,13 +270,13 @@ wave.plot_nroy(show_fig=True, save_fig=True)
 
 
     
-![png](../demo_simple_files/demo_simple_21_1.png)
+![png](demo_simple_files/demo_simple_21_1.png)
     
 
 
 
     
-![png](../demo_simple_files/demo_simple_21_2.png)
+![png](demo_simple_files/demo_simple_21_2.png)
     
 
 
@@ -428,7 +428,7 @@ wave.plot_r2(show_fig=True, save_fig=False)
 
 
     
-![png](../demo_simple_files/demo_simple_25_0.png)
+![png](demo_simple_files/demo_simple_25_0.png)
     
 
 
@@ -451,7 +451,7 @@ plot_sims(t[i_sample], data_mean, data_std, t, y)
 
 
     
-![png](../demo_simple_files/demo_simple_27_0.png)
+![png](demo_simple_files/demo_simple_27_0.png)
     
 
 
@@ -471,7 +471,7 @@ camo.plot_nroy_x(show_fig=True)
 
 
     
-![png](../demo_simple_files/demo_simple_29_0.png)
+![png](demo_simple_files/demo_simple_29_0.png)
     
 
 
@@ -485,7 +485,7 @@ camo.plot_nroy_y(show_fig=True)
 
 
     
-![png](../demo_simple_files/demo_simple_31_0.png)
+![png](demo_simple_files/demo_simple_31_0.png)
     
 
 
@@ -499,7 +499,7 @@ camo.plot_nroy_data(show_box=True)
 
 
     
-![png](../demo_simple_files/demo_simple_33_0.png)
+![png](demo_simple_files/demo_simple_33_0.png)
     
 
 
@@ -512,7 +512,7 @@ camo.plot_nroy_waves(show_fig=True, tile_size=2)
 
 
     
-![png](../demo_simple_files/demo_simple_35_0.png)
+![png](demo_simple_files/demo_simple_35_0.png)
     
 
 
@@ -526,7 +526,7 @@ camo.plot_waves_y(show_fig=True, y_names=('y2', ))
 
 
     
-![png](../demo_simple_files/demo_simple_37_0.png)
+![png](demo_simple_files/demo_simple_37_0.png)
     
 
 
@@ -539,7 +539,7 @@ camo.plot_waves_x(show_fig=True, x_names=('x1', ))
 
 
     
-![png](../demo_simple_files/demo_simple_39_0.png)
+![png](demo_simple_files/demo_simple_39_0.png)
     
 
 
@@ -621,7 +621,7 @@ camo.plot_sensitivity_matrix(show_fig=True, tile_size=2)
 
 
     
-![png](../demo_simple_files/demo_simple_43_0.png)
+![png](demo_simple_files/demo_simple_43_0.png)
     
 
 
@@ -634,7 +634,7 @@ camo.plot_sensitivity_total(show_bar=True)
 
 
     
-![png](../demo_simple_files/demo_simple_45_0.png)
+![png](demo_simple_files/demo_simple_45_0.png)
     
 
 
@@ -647,7 +647,7 @@ camo.plot_connectivity(show_fig=True)
 
 
     
-![png](../demo_simple_files/demo_simple_47_0.png)
+![png](demo_simple_files/demo_simple_47_0.png)
     
 
 
