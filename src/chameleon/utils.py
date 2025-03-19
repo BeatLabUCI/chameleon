@@ -228,3 +228,11 @@ def convert_data(df_mean, df_std, meta=None, growth=False, csv_dir=None, csv_nam
         data.to_csv(csv_dir / csv_name)
 
     return data
+
+
+def clean_up(directory, file_types=("hdf5", "npy")):
+    """Remove all files with given file extensions in directory and subdirectories"""
+
+    for ext in file_types:
+        for file in directory.rglob(f"*.{ext}"):
+            file.unlink()

@@ -13,7 +13,7 @@ import gpytorch
 import glob
 import shutil
 from .gpe_pytorch import ExactGPModel, MultitaskGPModel
-from .utils import scale, unscale, sample_space, sort_nicely, diversipy_sampling, create_log, update_log
+from .utils import scale, unscale, sample_space, sort_nicely, diversipy_sampling, create_log, update_log, clean_up
 
 
 class Camouflage:
@@ -147,6 +147,10 @@ class Camouflage:
         if self.n_x < plot_cols:
             plot_cols = self.n_x
         self.plot_shape_x = [int(np.ceil(self.n_x / plot_cols)), plot_cols]
+
+    def clean_up(self, file_types=("hdf5", "npy")):
+        """Remove all files and directories created by this wave"""
+        clean_up(self.dir, file_types=file_types)
 
     def surf(self, sensitivity=False, export_csv=False, export_pickle=True, print_summary=False, pickle_name="wave"):
         """Wrapper function to run all the functions required to complete a full wave. Exports wave as pickle"""
@@ -590,12 +594,13 @@ class Camouflage:
         self.plot_r2()
         self.plot_learning(learning_curves)
 
-    def gpe_emulate(self):
+    def gpe_emulate(self, log=True):
         """
         Emulate the full parameter space and calculate implausibility score of each emulation
         """
 
-        update_log(self.log_file, "Emulating " + str(self.n_emu) + " points...")
+        if log:
+            update_log(self.log_file, "Emulating " + str(self.n_emu) + " points...")
 
         # Retrieve and scale training data for model loading
         x_training = torch.tensor(scale(self.x_training, self.x_scaler))
@@ -628,7 +633,8 @@ class Camouflage:
                 self.y_emu_variance[:, i_y] = observed_pred.variance.numpy()
 
         # Report time to completion
-        update_log(self.log_file, "Emulation completed in " + str(round(time.time() - start_time, 2)) + " seconds")
+        if log:
+            update_log(self.log_file, "Emulation completed in " + str(round(time.time() - start_time, 2)) + " seconds")
 
         # Unscale emulated y, variance scales quadratically
         self.y_emu = unscale(self.y_emu, self.y_scaler)
