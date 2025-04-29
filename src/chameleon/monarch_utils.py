@@ -22,12 +22,14 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
                    run_sims=True, remove_outliers=False, time_ticks=None, growth_type="transverse",
                    fig_name="sim_results", show_fig=False, v_ticks=(0, 50, 100, 150), p_ticks=(0, 50, 100, 150),
                    segment_lfw=0, segment_rfw=1, segment_sw=2, percentile=0.95, shortening_data=None,
-                   show_hemo=False, show_stretch=False, plot_only_all=False):
+                   show_hemo=False, show_stretch=False, plot_only_all=False, print_log=None):
     """Wrapper function to run, analyze, and import model simulations"""
 
     # Specify directory to store simulations in
     file_path = wave.dir_sim
     fig_dir = wave.dir / "sim_results"
+
+    print_log = wave.print_log if print_log is None else print_log
 
     # If running posterior simulations, pull according parameter sets
     if posterior:
@@ -35,7 +37,7 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
         file_path = wave.dir.parent / wave.posterior_label
         fig_dir = wave.dir.parent / "Results"
         remove_outliers = True
-        update_log(wave.log_file, "\n---------\nPosterior\n---------")
+        update_log(wave.log_file, "\n---------\nPosterior\n---------", print_log)
 
     # Run models
     if run_sims:
@@ -49,15 +51,16 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
 
         run_models_par(wave.x_sim, wave.x_names, file_path, input_file, constants=constants, acute_key=acute_key,
                        log_file=log_file, n_processes=n_processes, growth=growth, file_hemo=file_hemo,
-                       time_ticks=time_ticks, growth_type=growth_type)
+                       time_ticks=time_ticks, growth_type=growth_type, print_log=print_log)
 
     # Analyze model simulations
     if growth:
         analyze_model_growth(file_path, wave.x_names, wave.y_names, m_outlier=m_outlier, log_file=log_file,
-                             remove_outliers=remove_outliers, percentile=percentile)
+                             remove_outliers=remove_outliers, percentile=percentile, print_log=print_log)
     else:
         analyze_model(file_path, wave.x_names, wave.y_names, m_outlier=m_outlier, log_file=log_file,
-                      remove_outliers=remove_outliers, percentile=percentile, shortening_data=shortening_data)
+                      remove_outliers=remove_outliers, percentile=percentile, shortening_data=shortening_data,
+                      print_log=print_log)
 
     # Import results of all model simulations ran for current and all previous waves
     sim_dirs.append(file_path)
@@ -78,7 +81,7 @@ def run_forest_run(wave, input_file, sim_dirs, constants=None, growth=False, acu
 
 def run_models_par(x_model, x_names, file_path, input_file, constants=None, acute_key="_acute",
                    n_processes=multiprocess.cpu_count() - 1, log_file=None, growth=False, file_hemo=None,
-                   time_ticks=None, growth_type="transverse"):
+                   time_ticks=None, growth_type="transverse", print_log=True):
     """
     Run model for all input parameter sets in x_model using parallel computing to reduce computational time
     """
@@ -86,7 +89,7 @@ def run_models_par(x_model, x_names, file_path, input_file, constants=None, acut
     if constants is None:
         constants = {}
 
-    update_log(log_file, "Running " + str(x_model.shape[0]) + " model simulations...")
+    update_log(log_file, "Running " + str(x_model.shape[0]) + " model simulations...", print_log=print_log)
 
     # Number of simulations to be run
     n_sims = x_model.shape[0]
@@ -108,12 +111,13 @@ def run_models_par(x_model, x_names, file_path, input_file, constants=None, acut
 
     # Check if acute_key is a substring in any of x_names
     if growth:
-        update_log(log_file, "%i" % n_sims + " growth simulations completed in %.2f seconds" % t1)
+        update_log(log_file, "%i" % n_sims + " growth simulations completed in %.2f seconds" % t1, print_log=print_log)
     else:
         if any([acute_key in x_name for x_name in x_names]):
-            update_log(log_file, "%i" % n_sims + " simulation pairs (baseline + acute) completed in %.2f seconds" % t1)
+            update_log(log_file, "%i" % n_sims + " simulation pairs (baseline + acute) completed in %.2f seconds" % t1,
+                       print_log=print_log)
         else:
-            update_log(log_file, "%i" % n_sims + " simulations completed in %.2f seconds" % t1)
+            update_log(log_file, "%i" % n_sims + " simulations completed in %.2f seconds" % t1, print_log=print_log)
 
     # Return total simulation time
     return t1
@@ -148,7 +152,10 @@ def run_model_par(x_model, x_names, i_x, file_path, input_file, constants={}, mo
     beat.change_pars(constants_baseline)
 
     # Run baseline model, do not use converged solution to be compatible with parallel computing
-    beat.just_beat_it(print_solve=False, file_path=file_path, file_name=file_name, use_converged=False)
+    try:
+        beat.just_beat_it(print_solve=False, file_path=file_path, file_name=file_name, use_converged=False)
+    except:
+        return
 
     # Perform acute simulation if needed
     if (len(pars_acute) > 0) or (len(constants_acute) > 0):
@@ -192,11 +199,13 @@ def run_growth_par(x_model, x_names, i_x, file_path, input_file, constants={}, t
     cg = set_ras_growth(beat, pars, acute_key=acute_key, time_ticks=time_ticks)
 
     # Run growth model, do not use converged solution to be compatible with parallel computing
-    cg.let_it_grow(file_path, file_name, use_converged=False, print_solve=False)
+    try:
+        cg.let_it_grow(file_path, file_name, use_converged=False, print_solve=False)
 
-    # Save real (unscaled) parameter values x
-    np.save(file_path / file_name, x_model)
-
+        # Save real (unscaled) parameter values x
+        np.save(file_path / file_name, x_model)
+    except:
+        pass
 
 def set_ras_growth(beat, pars, ras_label="Ras", sbv_label="SBV", rmvb_label="Rmvb", rmvb_baseline=1e10,
                    acute_key="_acute", time_ticks=None, drmvb_label="dRmvb", taurmvb_label="tauRmvb",
@@ -270,7 +279,8 @@ def get_model_files(file_path, acute_key="_acute", file_extension=".hdf5"):
 
 
 def analyze_model(file_path, x_labels, y_labels, sim_results_name="sim_results", m_outlier=None, shortening_data=None,
-                  acute_key="_acute", file_extension=".hdf5", log_file=None, remove_outliers=False, percentile=0.95):
+                  acute_key="_acute", file_extension=".hdf5", log_file=None, remove_outliers=False, percentile=0.95,
+                  print_log=True):
     """
     Obtains results y_sim from all simulations with input parameters x previously stored in file_path. Unconverged solutions
     (which have no output file) are skipped and assigned NaNs. When plot_results=True, LV and RV PV loops, strain
@@ -280,7 +290,7 @@ def analyze_model(file_path, x_labels, y_labels, sim_results_name="sim_results",
 
     # Find all converged simulations and corresponding parameter outputs
     sims, pars = get_model_files(file_path)
-    update_log(log_file, str(len(sims)) + " Simulations reached convergence")
+    update_log(log_file, str(len(sims)) + " Simulations reached convergence", print_log=print_log)
 
     # Pre-allocate arrays to store x and y.
     x_sims = np.empty((0, len(x_labels)))
@@ -333,6 +343,11 @@ def analyze_model(file_path, x_labels, y_labels, sim_results_name="sim_results",
         # Add all baseline and acute outputs to stack
         y_sims = np.vstack((y_sims, y_sim))
 
+    # Omit any simulations with nans
+    nan_indices = np.unique(np.where(np.isnan(y_sims))[0])
+    x_sims = np.delete(x_sims, nan_indices, axis=0)
+    y_sims = np.delete(y_sims, nan_indices, axis=0)
+
     # Omit outliers, i.e. values outside m_std_outlier times the standard deviation from the median
     x_sims, y_sims = filter_outliers(x_sims, y_sims, m_outlier=m_outlier, percentile=percentile,
                                      remove=remove_outliers, sims=sims, pars=pars)
@@ -340,13 +355,13 @@ def analyze_model(file_path, x_labels, y_labels, sim_results_name="sim_results",
     # Export simulated x and y into csv file
     export_x_y(x_sims, y_sims, x_labels, y_labels + y_labels_rho + y_labels_acute, file_path, sim_results_name)
 
-    update_log(log_file, str(x_sims.shape[0]) + " Simulations added to training data")
+    update_log(log_file, str(x_sims.shape[0]) + " Simulations added to training data", print_log=print_log)
 
     return x_sims, y_sims
 
 
 def analyze_model_growth(file_path, x_labels, y_labels, sim_results_name="sim_results", m_outlier=None,
-                         time_turner="_d", log_file=None, remove_outliers=False, percentile=0.95):
+                         time_turner="_d", log_file=None, remove_outliers=False, percentile=0.95, print_log=True):
     """
     Obtains results y_sim from all simulations with input parameters x previously stored in file_path. Unconverged solutions
     (which have no output file) are skipped and assigned NaNs. When plot_results=True, LV and RV PV loops, strain
@@ -356,7 +371,7 @@ def analyze_model_growth(file_path, x_labels, y_labels, sim_results_name="sim_re
 
     # Find all converged simulations and corresponding parameter outputs
     sims, pars = get_model_files(file_path)
-    update_log(log_file, str(len(sims)) + " Simulations reached convergence")
+    update_log(log_file, str(len(sims)) + " Simulations reached convergence", print_log=print_log)
 
     # Pre-allocate arrays to store x and y.
     x_sims = np.empty((0, len(x_labels)))
@@ -399,7 +414,7 @@ def analyze_model_growth(file_path, x_labels, y_labels, sim_results_name="sim_re
     # Export simulated x and y into csv file
     export_x_y(x_sims, y_sims, x_labels, y_labels, file_path, sim_results_name)
 
-    update_log(log_file, str(x_sims.shape[0]) + " Simulations added to training data")
+    update_log(log_file, str(x_sims.shape[0]) + " Simulations added to training data", print_log=print_log)
 
     return x_sims, y_sims
 

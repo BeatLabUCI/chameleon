@@ -335,8 +335,8 @@ class Camouflage:
                                                             np.max(prior.nroy[:, i_prior], axis=0)])))
 
         # Add categories
-        if prior.x_cats is not None:
-            self.x_cats.extend([prior.x_cats[i] for i in i_prior])
+        # if prior.x_cats is not None:
+        #    self.x_cats.extend([prior.x_cats[i] for i in i_prior])
 
         # Add target
         if prior.x_target is not None:

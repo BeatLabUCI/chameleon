@@ -87,23 +87,23 @@ class TrueColors:
         # Get confidence interval limits, use 95% confidence interval as default
         self.confidence_lim = confidence_lim
 
-    def roll(self, lims=None, nroy_full=False, n_samples=10000):
+    def roll(self, lims=None, nroy_full=False, n_samples=1000):
         """Wrapper to run all plot functions with default values"""
 
         # Use Seaborn to set plot style back to default, in case it was changed by Jupyter
         sns.set_theme(style="white", palette=None)
 
-        self.plot_implausibility_density()
-        self.plot_implausibility_counts()
-        self.plot_nroy_data()
-        self.plot_sim_space()
+        # self.plot_implausibility_density()
+        # self.plot_implausibility_counts()
         self.plot_nroy_x(n_samples=n_samples)
         self.plot_nroy_y(n_samples=n_samples, lims=lims)
-        self.plot_waves_y(n_samples=n_samples)
-        self.plot_waves_x(n_samples=n_samples)
+        # self.plot_waves_y(n_samples=n_samples)
+        # self.plot_waves_x(n_samples=n_samples)
+        self.plot_nroy_data()
+        # self.plot_sim_space()
 
         # Plot full NROY region if desired: slooow
-        if nroy_full and n_samples is not None:
+        if nroy_full == True:
             self.plot_nroy_x(filename="nroy_x_full.pdf")
             self.plot_nroy_y(lims=lims, filename="nroy_x_full.pdf")
         # self.plot_nroy_waves()
@@ -796,8 +796,8 @@ class TrueColors:
         nroy_y_emu = normalize_data_ci(self.waves[i_wave].nroy_y, self.waves[i_wave].y_observed,
                                        self.waves[i_wave].sigma_observed)
         df_nroy_emu = pd.DataFrame(data=nroy_y_emu, columns=self.y_names)
-        plot_boxes_violins(df_nroy_emu, filepath=filepath, filename=filename,
-                           show_violin=show_violin, show_box=show_box)
+        # plot_boxes_violins(df_nroy_emu, filepath=filepath, filename=filename,
+        #                   show_violin=show_violin, show_box=show_box)
 
         # Posterior box plots, normalize and plot data
         if self.waves[i_wave].y_posterior is not None:
