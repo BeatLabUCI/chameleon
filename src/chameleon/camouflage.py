@@ -320,6 +320,20 @@ class Camouflage:
             pathlib._local = types.ModuleType('pathlib._local')
             sys.modules['pathlib._local'] = pathlib._local
 
+        # Add PosixPath to the _local module
+        # In newer Python versions, PosixPath is in pathlib directly
+        # But for backward compatibility with pickles, we'll add it to _local too
+        if hasattr(pathlib, 'PosixPath'):
+            pathlib._local.PosixPath = pathlib.PosixPath
+        else:
+            # If your system doesn't have PosixPath (e.g., Windows),
+            # we'll use Path as a fallback
+            pathlib._local.PosixPath = pathlib.Path
+
+        # Also add WindowsPath for Windows systems
+        if hasattr(pathlib, 'WindowsPath'):
+            pathlib._local.WindowsPath = pathlib.WindowsPath
+
         # Open last pickle and extract NROY and their names
         with open(prior_pickles[-1], "rb") as f:
             return pickle.load(f)
