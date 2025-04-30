@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import pathlib
+from pathlib import Path
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pickle
@@ -819,7 +819,7 @@ def plot_boxes_violins(df_nroy, filepath=None, filename="nroy_data.pdf", show_bo
 
     # Use current directory if not specified
     if filepath is None:
-        filepath = pathlib.Path().absolute()
+        filepath = Path().absolute()
 
     filenames = [filename.split(".")[0] + "_violin." + filename.split(".")[-1],
                  filename.split(".")[0] + "_box." + filename.split(".")[-1]]
