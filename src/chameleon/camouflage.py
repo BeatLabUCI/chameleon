@@ -14,6 +14,7 @@ import glob
 import shutil
 from datetime import datetime
 import warnings
+import pathlib
 from .gpe_pytorch import ExactGPModel, MultitaskGPModel
 from .utils import scale, unscale, sample_space, sort_nicely, diversipy_sampling, create_log, update_log, clean_up
 
