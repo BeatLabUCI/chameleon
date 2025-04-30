@@ -123,7 +123,7 @@ def mad_outliers(data, m_outlier=3.0):
     return list(set(outliers))
 
 
-def create_log(log_file, x_names, x_limits, y_names, y_observed, sigma_observed, constants, x_target):
+def create_log(log_file, x_names, x_limits, y_names, y_observed, sigma_observed, constants, x_target, print_log=True):
     """Create log file, summary of wave data and parameters to txt file"""
 
     # Loop through each row of self.x_limits and print parameter range to string
@@ -152,10 +152,11 @@ def create_log(log_file, x_names, x_limits, y_names, y_observed, sigma_observed,
         for i in range(len(x_names)):
             target_str += "- " + str(x_names[i]) + ": " + str(x_target[i]) + "\n"
 
-    print(x_pars_str)
-    print(y_data_str)
-    print(constants_str)
-    print(target_str)
+    if print_log:
+        print(x_pars_str)
+        print(y_data_str)
+        print(constants_str)
+        print(target_str)
 
     # Export self.x_names to txt file and replace file if existing
     with open(log_file, "w") as f:
@@ -164,9 +165,10 @@ def create_log(log_file, x_names, x_limits, y_names, y_observed, sigma_observed,
         f.write(constants_str)
 
 
-def update_log(log_file, str_log):
+def update_log(log_file, str_log, print_log):
     """Print and add str to log file"""
-    print(str_log)
+    if print_log:
+        print(str_log)
     with open(str(log_file), "a") as f:
         f.write(str_log + "\n")
 

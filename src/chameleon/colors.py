@@ -103,7 +103,7 @@ class TrueColors:
         # self.plot_sim_space()
 
         # Plot full NROY region if desired: slooow
-        if nroy_full == True:
+        if nroy_full and n_samples is not None:
             self.plot_nroy_x(filename="nroy_x_full.pdf")
             self.plot_nroy_y(lims=lims, filename="nroy_x_full.pdf")
         # self.plot_nroy_waves()
@@ -796,8 +796,8 @@ class TrueColors:
         nroy_y_emu = normalize_data_ci(self.waves[i_wave].nroy_y, self.waves[i_wave].y_observed,
                                        self.waves[i_wave].sigma_observed)
         df_nroy_emu = pd.DataFrame(data=nroy_y_emu, columns=self.y_names)
-        # plot_boxes_violins(df_nroy_emu, filepath=filepath, filename=filename,
-        #                   show_violin=show_violin, show_box=show_box)
+        plot_boxes_violins(df_nroy_emu, filepath=filepath, filename=filename,
+                           show_violin=show_violin, show_box=show_box)
 
         # Posterior box plots, normalize and plot data
         if self.waves[i_wave].y_posterior is not None:

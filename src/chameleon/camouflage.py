@@ -12,6 +12,8 @@ import torch
 import gpytorch
 import glob
 import shutil
+from datetime import datetime
+import warnings
 from .gpe_pytorch import ExactGPModel, MultitaskGPModel
 from .utils import scale, unscale, sample_space, sort_nicely, diversipy_sampling, create_log, update_log, clean_up
 
@@ -28,12 +30,12 @@ class Camouflage:
                  n_emu0=2 ** 20, n_emu_min=1e5, n_sim=2 ** 7, n_posterior=2 ** 8, plot_cols=4, log_file="bhm.log",
                  constants=None, prior_dir=None, prior_names=None, posterior_label="Posterior", clear_dir=False,
                  validation=False, x_posterior=None, y_posterior=None, os_compatibility=False,
-                 sim_dir_name="sims", gpe_dir_name="gpe"):
+                 sim_dir_name="sims", gpe_dir_name="gpe", print_log=True, save_log=True, wave_name=None):
         """ Initialize Wave """
 
         # Pass in to the class
         self.wave_number = wave_number
-        self.name = "Wave " + str(wave_number + 1)
+        self.name = "Wave " + str(wave_number + 1) if wave_name is None else wave_name
         self.threshold = threshold
         self.n_emu0 = int(n_emu0)
         self.n_emu_min = int(n_emu_min)
@@ -81,21 +83,29 @@ class Camouflage:
         self.dir = root_dir / self.name
         self.dir_sim = self.dir / sim_dir_name
         self.dir_gpe = self.dir / gpe_dir_name
+        self.gpe_models = []
+        self.gpe_likelihoods = []
         self.dir_sim.mkdir(exist_ok=True, parents=True)
         self.dir_gpe.mkdir(exist_ok=True, parents=True)
 
         # Check if log file does not exist in the root directory, if not create it
         self.log_file = root_dir / log_file
-        if clear_log:
+        self.print_log = print_log
+        self.save_log = save_log
+        if clear_log and save_log:
             create_log(self.log_file, self.x_names, self.x_limits, self.y_names, self.y_observed, self.sigma_observed,
-                       self.constants, self.x_target)
+                       self.constants, self.x_target, self.print_log)
 
         # Start wave log
-        update_log(self.log_file, "\n" + len(self.name) * "-" + "\n" + self.name + "\n" + len(self.name) * "-")
+        if save_log:
+            update_log(self.log_file, "\n" + len(self.name) * "-" + "\n" + self.name + "\n" + len(self.name) * "-",
+                       self.print_log)
 
         # If no NROY region is given (typically for first wave), fill up both spaces using Sobol sampling
         if self.nroy is None:
-            update_log(self.log_file, "Generated emulation point cloud with " + str(self.n_emu0) + " points")
+            if print_log:
+                update_log(self.log_file, "Generated emulation point cloud with " + str(self.n_emu0) + " points",
+                           self.print_log)
             self.x_emu = sample_space(n_emu0, self.n_x, self.x_limits)
             self.n_emu_init = self.x_emu.shape[0]
         # ... otherwise use NROY region from the previous wave
@@ -111,8 +121,9 @@ class Camouflage:
 
         # Generate extra emulation points if number of emulation points is too low
         if self.n_emu_init < self.n_emu_min:
-            update_log(self.log_file, "Regenerating emulation cloud from " + str(self.x_emu.shape[0]) +
-                       " to " + str(self.n_emu_min) + " points...")
+            if print_log:
+                update_log(self.log_file, "Regenerating emulation cloud from " + str(self.x_emu.shape[0]) +
+                           " to " + str(self.n_emu_min) + " points...", self.print_log)
             self.regenerate_emu()
 
         # Sample simulation points from the NROY region using diversipy to ensure uniform sampling
@@ -189,27 +200,33 @@ class Camouflage:
         # Abort history matching if maximum amount of waves has been reached
         if (i_wave + 1) >= max_waves:
             not_flooded = False
-            update_log(self.log_file, "NROY size change at " + self.name + " is " + f"{sea_level_change:.2f}" +
-                       ": history matching terminated because maximum allowed number of waves has been reached")
+            if self.save_log:
+                update_log(self.log_file, "NROY size change at " + self.name + " is " + f"{sea_level_change:.2f}" +
+                           ": history matching terminated because maximum allowed number of waves has been reached",
+                           self.print_log)
 
         # Convergence if NROY region size change is lower than the threshold "flooded"
         elif np.abs(sea_level_change) <= flooded:
             # But only abort if minimum number of waves has not yet been reached
             if i_wave + 1 >= min_waves:
                 not_flooded = False
-                update_log(self.log_file,
-                           "NROY size change is " + f"{sea_level_change:.2f}" + ": convergence established")
+                if self.save_log:
+                    update_log(self.log_file,
+                               "NROY size change is " + f"{sea_level_change:.2f}" + ": convergence established",
+                               self.print_log)
             else:
                 not_flooded = True
-                update_log(self.log_file, "NROY size change is " + f"{sea_level_change:.2f}" +
-                           ": convergence established but minimum number of waves (" + str(int(min_waves))
-                           + ") not yet reached")
+                if self.save_log:
+                    update_log(self.log_file, "NROY size change is " + f"{sea_level_change:.2f}" +
+                               ": convergence established but minimum number of waves (" + str(int(min_waves))
+                               + ") not yet reached", self.print_log)
 
         # Otherwise, continue with next wave
         elif np.abs(sea_level_change) > flooded:
             not_flooded = True
-            update_log(self.log_file, "NROY size change at " + self.name + " is " + f"{sea_level_change:.2f}"
-                       + ": no convergence")
+            if self.save_log:
+                update_log(self.log_file, "NROY size change at " + self.name + " is " + f"{sea_level_change:.2f}"
+                           + ": no convergence", self.print_log)
 
         return not_flooded
 
@@ -335,7 +352,7 @@ class Camouflage:
                                                             np.max(prior.nroy[:, i_prior], axis=0)])))
 
         # Add categories
-        # if prior.x_cats is not None:
+        #if prior.x_cats is not None:
         #    self.x_cats.extend([prior.x_cats[i] for i in i_prior])
 
         # Add target
@@ -353,7 +370,9 @@ class Camouflage:
             prior_names_str = ""
             for i in range(len(self.prior_names)):
                 prior_names_str += self.prior_names[i] + ", "
-            update_log(self.log_file, "Added priors to emulation point cloud: " + prior_names_str[:-2])
+            if self.save_log:
+                update_log(self.log_file,
+                           "Added priors to emulation point cloud: " + prior_names_str[:-2], self.print_log)
 
     def set_scales(self):
         """Fit estimators to normalize x and y using the simulation data, which will span the full parameter space"""
@@ -385,14 +404,16 @@ class Camouflage:
         self.x_validation = self.x_sim[i_validation, :]
         self.y_validation = self.y_sim[i_validation, :]
 
-    def gpe_training_validation(self, fraction_training=0.80, print_summary=False, n_fits=1,
+    def gpe_training_validation(self, fraction_training=0.80, print_summary=None, n_fits=1, learning_rate=0.1,
                                 var_lim=(0.01, 2.0), length_lim=(0.01, 2.0), n_training_iter=100):
         """
         Train and validate a GPE model for each observable output y using known x and y. Default of training/validation
         is 80/20 split (specified by fraction_training). All GPE models all stored in Wave.gpe_models.
         """
 
-        update_log(self.log_file, "Training GPEs using PyTorch" + "...")
+        if self.save_log:
+            update_log(self.log_file, "Training GPEs using PyTorch" + "...",
+                       self.print_log if print_summary is None else print_summary)
 
         # Split into training and validation sets, default is 80/20 split
         self.split_dataset(fraction_training)
@@ -429,7 +450,7 @@ class Camouflage:
                 likelihood.train()
 
                 # Use the adam optimizer
-                optimizer = torch.optim.Adam(model.parameters(), lr=0.1)  # Includes GaussianLikelihood parameters
+                optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # Includes GaussianLikelihood parameters
 
                 # "Loss" for GPs - the marginal log likelihood
                 mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -465,13 +486,15 @@ class Camouflage:
             learning_curves.append(learning_curves_y[np.argmin(losses)])
 
             # Save model state and training data
-            torch.save(gpe_model.state_dict(), self.dir_gpe / str("gpe_" + self.y_names[i_y] + ".pt"))
+            self.gpe_models.append(gpe_model)
+            self.gpe_likelihoods.append(likelihood)
+            self.save_emulator(gpe_model, likelihood, self.dir_gpe / str("gpe_" + self.y_names[i_y] + ".pt"))
 
             # Predict outcomes for validation
             gpe_model.eval()
             likelihood.eval()
 
-            with torch.no_grad(), gpytorch.settings.fast_pred_var():
+            with torch.no_grad():
                 # Predict mean and variance
                 observed_pred = likelihood(gpe_model(x_validation.double()))
                 y_prediction[:, i_y] = observed_pred.mean.numpy()
@@ -487,127 +510,35 @@ class Camouflage:
         self.plot_r2(confidence=True, fig_name="r2_confidence.pdf")
         self.plot_learning(learning_curves)
 
-    def gpe_training_validation_multi(self, fraction_training=0.80, print_summary=False, n_fits=1,
-                                      var_lim=(0.01, 2.0), length_lim=(0.01, 2.0), n_training_iter=100):
-        """
-        Train and validate a GPE model for each observable output y using known x and y. Default of training/validation
-        is 80/20 split (specified by fraction_training). All GPE models all stored in Wave.gpe_models.
-        """
-
-        update_log(self.log_file, "Training GPEs using PyTorch" + "...")
-
-        # Split into training and validation sets, default is 80/20 split
-        self.split_dataset(fraction_training)
-
-        # Scale data
-        self.set_scales()
-        x_training = torch.tensor(scale(self.x_training, self.x_scaler))
-        y_training = torch.tensor(scale(self.y_training, self.y_scaler))
-        x_validation = torch.tensor(scale(self.x_validation, self.x_scaler))
-        y_validation = torch.tensor(scale(self.y_validation, self.y_scaler))
-
-        # Pre-allocate r2 and prediction arrays
-        self.r_2 = []
-        learning_curves = []
-        y_prediction = np.zeros(y_validation.shape)
-        y_prediction_variance = np.zeros(y_validation.shape)
-
-        # Record time
-        start_time = time.time()
-
-        # Train GPE for each output variable y
-        for i_y in range(self.n_y):
-
-            # Run n_fits with different initial guesses and keep best fit
-            gpe_models = []
-            likelihoods = []
-            learning_curves_y = []
-            losses = np.array([])
-
-            for i_fit in range(n_fits):
-                # Initialize likelihood and model
-                likelihood = gpytorch.likelihoods.GaussianLikelihood(num_tasks=self.n_y)
-                model = MultitaskGPModel(x_training, y_training[:, i_y], likelihood, self.n_y)
-
-                # Find optimal model hyperparameters
-                model.train()
-                likelihood.train()
-
-                # Use the adam optimizer
-                optimizer = torch.optim.Adam(model.parameters(), lr=0.1)  # Includes GaussianLikelihood parameters
-
-                # "Loss" for GPs - the marginal log likelihood
-                mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
-
-                # Assign random values to parameters if multiple fitting rounds are used
-                if n_fits > 1:
-                    model.covar_module.base_kernel.lengthscale = random.uniform(length_lim[0], length_lim[1])
-                    model.likelihood.noise = random.uniform(var_lim[0], var_lim[1])
-
-                learning_curve = []
-                for i in range(n_training_iter):
-                    # Zero gradients from previous iteration
-                    optimizer.zero_grad()
-                    # Output from model
-                    output = model(x_training)
-                    # Calc loss and backprop gradients
-                    loss = -mll(output, y_training[:, i_y])
-                    if print_summary:
-                        print('Iter %d/%d - Loss: %.3f' % (i + 1, n_training_iter, loss.item()))
-                    learning_curve.append(loss.item())
-                    loss.backward()
-                    optimizer.step()
-
-                # Add to collection
-                gpe_models.append(model)
-                likelihoods.append(likelihood)
-                losses = np.append(losses, loss.item())
-                learning_curves_y.append(learning_curve)
-
-            # Select best fit
-            gpe_model = gpe_models[np.argmin(losses)].double()
-            likelihood = likelihoods[np.argmin(losses)].double()
-            learning_curves.append(learning_curves_y[np.argmin(losses)])
-
-            # Save model state and training data
-            torch.save(gpe_model.state_dict(), self.dir_gpe / str("gpe_" + self.y_names[i_y] + ".pt"))
-
-            # Predict outcomes for validation
-            gpe_model.eval()
-            likelihood.eval()
-
-            with torch.no_grad(), gpytorch.settings.fast_pred_var():
-                # Predict mean and variance
-                observed_pred = likelihood(gpe_model(x_validation.double()))
-                y_prediction[:, i_y] = observed_pred.mean.numpy()
-                y_prediction_variance[:, i_y] = observed_pred.variance.numpy()
-
-                # Compute R2
-                self.r_2.append(metrics.r2_score(y_validation[:, i_y], y_prediction[:, i_y]))
-
-        # Report time to completion
-        update_log(self.log_file, "Validation completed in " + str(round(time.time() - start_time, 2)) + " seconds")
-
-        # Wrap-up: unscale predictions to real value and plot R2
-        self.y_prediction = unscale(y_prediction, self.y_scaler)
-        self.y_prediction_variance = y_prediction_variance / self.y_scaler.scale_ ** 2
-        self.plot_r2()
-        self.plot_learning(learning_curves)
-
-    def gpe_emulate(self, log=True):
+    def gpe_emulate(self, print_log=None):
         """
         Emulate the full parameter space and calculate implausibility score of each emulation
         """
 
-        if log:
-            update_log(self.log_file, "Emulating " + str(self.n_emu) + " points...")
+        if self.save_log:
+            update_log(self.log_file, "Emulating " + str(self.n_emu) + " points...",
+                       self.print_log if print_log is None else print_log)
 
-        # Retrieve and scale training data for model loading
-        x_training = torch.tensor(scale(self.x_training, self.x_scaler))
-        y_training = torch.tensor(scale(self.y_training, self.y_scaler))
+        if len(self.gpe_models) > 0:
+            gpe_models = self.gpe_models
+            gpe_likelihoods = self.gpe_likelihoods
+        else:
+            # Load the GPE models from file
+            gpe_models = []
+            gpe_likelihoods = []
+            for i_y in range(self.n_y):
+                model, likelihood, x_scaler, y_scaler = self.load_emulator(
+                    self.dir_gpe / str("gpe_" + self.y_names[i_y] + ".pt"))
+                gpe_models.append(model)
+                gpe_likelihoods.append(likelihood)
+                # Set scalers if previously stored
+                if x_scaler is not None:
+                    self.x_scaler = x_scaler
+                if y_scaler is not None:
+                    self.y_scaler = y_scaler
 
         # Scale input x to normalized values
-        x_emu = torch.tensor(scale(self.x_emu, self.x_scaler))
+        x_emu = torch.tensor(scale(self.x_emu, self.x_scaler), dtype=torch.float32)
         self.y_emu = np.zeros((x_emu.shape[0], self.n_y))
         self.y_emu_variance = np.zeros((x_emu.shape[0], self.n_y))
 
@@ -616,43 +547,247 @@ class Camouflage:
 
         # Emulate each y
         for i_y in range(self.n_y):
-            # Load model hyperparameters and initiate GPE models
-            state_dict = torch.load(self.dir_gpe / str("gpe_" + self.y_names[i_y] + ".pt"), weights_only=True)
-            likelihood = gpytorch.likelihoods.GaussianLikelihood().double()
-            gpe_model = ExactGPModel(x_training, y_training[:, i_y], likelihood).double()
-            gpe_model.load_state_dict(state_dict)
+            # Initialize likelihood and model
+            likelihood = gpe_likelihoods[i_y]
+            gpe_model = gpe_models[i_y]
 
-            # Predict outcomes for validation
+            # Evaluation mode
             gpe_model.eval()
             likelihood.eval()
 
             # Predict mean and variance
-            with torch.no_grad(), gpytorch.settings.fast_pred_var():
+            with torch.no_grad():
                 observed_pred = likelihood(gpe_model(x_emu.double()))
                 self.y_emu[:, i_y] = observed_pred.mean.numpy()
                 self.y_emu_variance[:, i_y] = observed_pred.variance.numpy()
 
         # Report time to completion
-        if log:
-            update_log(self.log_file, "Emulation completed in " + str(round(time.time() - start_time, 2)) + " seconds")
+        if self.save_log:
+            update_log(self.log_file, "Emulation completed in " + str(round(time.time() - start_time, 2)) + " seconds",
+                       self.print_log)
 
         # Unscale emulated y, variance scales quadratically
         self.y_emu = unscale(self.y_emu, self.y_scaler)
         self.y_emu_variance = self.y_emu_variance / self.y_scaler.scale_ ** 2
 
-    def load_trained_gpe(self, dir_wave, pickle_wave="wave.pkl", gpe_dir_name="gpe"):
-        """Load trained GPE models from a wave directory"""
+    def gpe_training_validation_multitask(self, fraction_training=0.80, print_summary=None, learning_rate=0.1,
+                                          rank=2, n_training_iter=100, gpe_name="gpe_multitask.pt"):
+        """
+        Train and validate a multitask GPE model for all observable outputs y using known x and y.
+        Default training/validation is 80/20 split (specified by fraction_training).
+        """
 
-        # Set directory of PyTorch GPE files
-        self.dir_gpe = dir_wave / gpe_dir_name
+        if self.save_log:
+            update_log(self.log_file, "Training multitask GPE using PyTorch...",
+                       self.print_log if print_summary is None else print_summary)
 
-        # Load training data from the wave pickle
-        with open(dir_wave / pickle_wave, "rb") as f:
-            wave = pickle.load(f)
-            self.x_training = wave.x_training
-            self.y_training = wave.y_training
-            self.x_scaler = wave.x_scaler
-            self.y_scaler = wave.y_scaler
+        # Split into training and validation sets
+        self.split_dataset(fraction_training)
+
+        # Scale data and convert to PyTorch tensors
+        self.set_scales()
+        x_training = torch.tensor(scale(self.x_training, self.x_scaler), dtype=torch.float32)
+        y_training = torch.tensor(scale(self.y_training, self.y_scaler), dtype=torch.float32)
+        x_validation = torch.tensor(scale(self.x_validation, self.x_scaler), dtype=torch.float32)
+        y_validation = torch.tensor(scale(self.y_validation, self.y_scaler), dtype=torch.float32)
+
+        # Initialize likelihood and model
+        likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(num_tasks=self.n_y)
+        model = MultitaskGPModel(x_training, y_training, likelihood, num_tasks=self.n_y, rank=rank)
+
+        # Training mode
+        model.train()
+        likelihood.train()
+
+        # Use Adam optimizer
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+        # "Loss" for GPs - the marginal log likelihood
+        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+        # Training loop
+        learning_curve = []
+        for i in range(n_training_iter):
+            # Zero gradients from previous iteration
+            optimizer.zero_grad()
+            # Output from model
+            output = model(x_training)
+            # Calculate loss and backpropagate gradients
+            loss = -mll(output, y_training)
+            if print_summary:
+                print(f'Iter {i + 1}/{n_training_iter} - Loss: {loss.item():.3f}')
+            learning_curve.append(loss.item())
+            loss.backward()
+            optimizer.step()
+
+        # Save model, likelihood, training data, and metadata including scalers
+        self.save_emulator(model, likelihood, self.dir_gpe / gpe_name)
+        self.gpe_models.append(model)
+        self.gpe_likelihoods.append(likelihood)
+
+        # Evaluation mode
+        model.eval()
+        likelihood.eval()
+
+        # Pre-allocate R² and prediction arrays
+        self.r_2 = []
+        y_prediction = np.zeros(y_validation.shape)
+        y_prediction_variance = np.zeros(y_validation.shape)
+
+        # Predict validation results
+        with torch.no_grad():
+            observed_pred = likelihood(model(x_validation))
+            y_prediction = observed_pred.mean.numpy()
+            y_prediction_variance = observed_pred.variance.numpy()
+
+        # Compute R² for each output
+        for i_y in range(self.n_y):
+            self.r_2.append(metrics.r2_score(y_validation[:, i_y], y_prediction[:, i_y]))
+
+        # Wrap-up: unscale predictions to real value and plot R2
+        self.y_prediction = unscale(y_prediction, self.y_scaler)
+        self.y_prediction_variance = y_prediction_variance / self.y_scaler.scale_ ** 2
+        self.plot_r2()
+        self.plot_r2(confidence=True, fig_name="r2_confidence.pdf")
+        self.plot_learning([learning_curve])
+
+        return model, likelihood
+
+    def gpe_emulate_multitask(self, print_log=None, gpe_name="gpe_multitask.pt", batch_size=10000, fast_mode=False):
+        """
+        Emulate the full parameter space using a multitask GPE model and calculate
+        implausibility score of each emulation
+        """
+
+        if self.save_log:
+            update_log(self.log_file, "Emulating " + str(self.x_emu.shape[0]) + " points with multitask GPE...",
+                       self.print_log if print_log is None else print_log)
+
+        # Record time
+        start_time = time.time()
+
+        # Load model, likelihood, training data, and metadata including scalers
+        if len(self.gpe_models) > 0:
+            model = self.gpe_models[0]
+            likelihood = self.gpe_likelihoods[0]
+        else:
+            # Load the GPE model from file
+            model, likelihood, x_scaler, y_scaler = self.load_emulator(self.dir_gpe / gpe_name)
+            # Set scalers from loaded model if available
+            if x_scaler is not None:
+                self.x_scaler = x_scaler
+            if y_scaler is not None:
+                self.y_scaler = y_scaler
+
+        x_emu = torch.tensor(scale(self.x_emu, self.x_scaler), dtype=torch.float32)
+        self.y_emu = np.zeros((x_emu.shape[0], self.n_y))
+        self.y_emu_variance = np.zeros((x_emu.shape[0], self.n_y))
+
+        # Process in batches to avoid memory issues
+        batch_size = min(batch_size, x_emu.shape[0])
+        num_batches = (x_emu.shape[0] + batch_size - 1) // batch_size
+
+        # Evaluation mode
+        model.eval()
+        likelihood.eval()
+
+        if fast_mode:
+            with torch.no_grad(), gpytorch.settings.fast_pred_var():
+                for batch_idx in range(num_batches):
+                    start_idx = batch_idx * batch_size
+                    end_idx = min((batch_idx + 1) * batch_size, x_emu.shape[0])
+
+                    current_batch = x_emu[start_idx:end_idx]
+
+                    # Make predictions
+                    observed_pred = likelihood(model(current_batch))
+
+                    # Store results
+                    self.y_emu[start_idx:end_idx] = observed_pred.mean.numpy()
+                    self.y_emu_variance[start_idx:end_idx] = observed_pred.variance.numpy()
+        else:
+            with torch.no_grad():
+                for batch_idx in range(num_batches):
+                    start_idx = batch_idx * batch_size
+                    end_idx = min((batch_idx + 1) * batch_size, x_emu.shape[0])
+
+                    current_batch = x_emu[start_idx:end_idx]
+
+                    # Make predictions
+                    observed_pred = likelihood(model(current_batch))
+
+                    # Store results
+                    self.y_emu[start_idx:end_idx] = observed_pred.mean.numpy()
+                    self.y_emu_variance[start_idx:end_idx] = observed_pred.variance.numpy()
+
+
+        # Report time to completion
+        if self.save_log:
+            update_log(self.log_file,
+                       "Multitask emulation completed in " + str(round(time.time() - start_time, 2)) + " seconds",
+                       self.print_log if print_log is None else print_log)
+
+        # Unscale emulated y
+        self.y_emu = unscale(self.y_emu, self.y_scaler)
+        self.y_emu_variance = self.y_emu_variance / self.y_scaler.scale_ ** 2
+
+        return model, likelihood
+
+    def save_emulator(self, model, likelihood, file_path, print_save=False):
+        """Save a trained multitask GP emulator to a file
+        """
+        # Create a dictionary with all components needed to restore the emulator
+        state_dict = {
+            'model_state_dict': model.state_dict(),
+            'likelihood_state_dict': likelihood.state_dict(),
+            'train_inputs': model.train_inputs[0],  # Store training data
+            'train_targets': model.train_targets,
+            'x_scaler': self.x_scaler,
+            'y_scaler': self.y_scaler,
+        }
+
+        # If model.num_tasks exists, add it to the dictionary
+        if hasattr(model, 'num_tasks'):
+            state_dict['num_tasks'] = model.num_tasks
+        if hasattr(model, 'covar'):
+            state_dict['rank'] = model.covar_module.task_covar_module.covar_factor.shape[-1],
+
+        # Save to file
+        torch.save(state_dict, file_path)
+        if print_save:
+            print(f"Emulator saved to {file_path}")
+
+    def load_emulator(self, file_path):
+        """Load a trained multitask GP emulator from a file"""
+        # Load the state dictionary from file
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            state_dict = torch.load(file_path)
+
+        # Extract the training data and model parameters
+        train_x = state_dict['train_inputs']
+        train_y = state_dict['train_targets']
+        num_tasks = state_dict['num_tasks']
+        rank = state_dict.get('rank', 2)  # Default to 2 if not stored
+        x_scaler = state_dict.get('x_scaler', None) # Use the stored x_scaler if available, otherwise None
+        y_scaler = state_dict.get('y_scaler', None) # Use the stored y_scaler if available, otherwise None
+
+        # Create a new likelihood
+        likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(num_tasks=num_tasks)
+
+        # Create a new model with the same architecture
+        model = MultitaskGPModel(train_x, train_y, likelihood, num_tasks, rank)
+
+        # Load the saved state dictionaries
+        model.load_state_dict(state_dict['model_state_dict'])
+        likelihood.load_state_dict(state_dict['likelihood_state_dict'])
+
+        # Set to evaluation mode
+        model.eval()
+        likelihood.eval()
+
+        print(f"Emulator loaded from {file_path}")
+        return model, likelihood, x_scaler, y_scaler
 
     def find_nroy(self, plot_nroy=True):
         """Use the implausibility score to identify the NROY region for this wave"""
@@ -671,17 +806,20 @@ class Camouflage:
         self.nroy_y_variance = self.y_emu_variance[self.i_nroy, :]
         self.nroy_implausibility = self.implausibility[self.i_nroy]
 
-        update_log(self.log_file, str(int(self.nroy.shape[0])) +
-                   " points remaining in NROY region (" + str(round(self.nroy.shape[0] / self.n_emu0 * 100, 2)) +
-                   "% of original space)")
+        if self.save_log:
+            update_log(self.log_file, str(int(self.nroy.shape[0])) +
+                       " points remaining in NROY region (" + str(round(self.nroy.shape[0] / self.n_emu0 * 100, 2)) +
+                       "% of original space)", self.print_log)
 
         # Find y that is the most implausible
         i_max = np.argmax(self.implausibility_y, axis=1)
         i_max, counts = np.unique(i_max, return_counts=True)
         i_max = i_max[np.argmax(counts)]
 
-        update_log(self.log_file, str(self.y_names[i_max]) + " is the most implausible output ("
-                   + str(round(counts[np.argmax(counts)] / np.sum(counts) * 100, 2)) + "% of all points)")
+        if self.save_log:
+            update_log(self.log_file, str(self.y_names[i_max]) + " is the most implausible output ("
+                       + str(round(counts[np.argmax(counts)] / np.sum(counts) * 100, 2)) + "% of all points)",
+                       self.print_log)
 
         # Plot NROY region
         if plot_nroy:
@@ -701,7 +839,9 @@ class Camouflage:
         self.nroy_y_variance = np.delete(self.nroy_y_variance, i_remove, axis=0)
         self.nroy_implausibility = np.delete(self.nroy_implausibility, i_remove, axis=0)
 
-        update_log(self.log_file, str(int(self.nroy.shape[0])) + " points remaining in NROY region after limits check")
+        if self.save_log:
+            update_log(self.log_file, str(int(self.nroy.shape[0])) + " points remaining in NROY region after limits check",
+                       self.print_log)
 
     def gpe_export(self, filename="emulate_results"):
         """Export emulated results and their input parameters alongside implausibility score and threshold satisfaction"""
@@ -882,7 +1022,7 @@ class Camouflage:
         fig = plt.figure(figsize=(2.5 * self.plot_shape_y[1], 2.5 * self.plot_shape_y[0]))
 
         # Plot R2 ald correlation for every y variable
-        for i_y in range(self.n_y):
+        for i_y in range(len(learning_curves)):
             ax = fig.add_subplot(self.plot_shape_y[0], self.plot_shape_y[1], i_y + 1)
 
             ax.set_title(self.y_names[i_y])
@@ -954,7 +1094,8 @@ class Camouflage:
     def sobol_sensitivity(self, n_samples=2 ** 15):
         """Perform Sobol sensitivity analysis this wave's trained GPEs and parameter space"""
 
-        update_log(self.log_file, "Performing sensitivity analysis" + "...")
+        if self.save_log:
+            update_log(self.log_file, "Performing sensitivity analysis" + "...", self.print_log)
 
         # Define problem: range and dimensions
         self.sobol_problem = {
@@ -992,3 +1133,4 @@ class Camouflage:
         g.add_legend()
         g.savefig(self.dir / fig_name, bbox_inches='tight', dpi=300)
         plt.close()
+
