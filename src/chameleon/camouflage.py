@@ -312,6 +312,10 @@ class Camouflage:
 
         # Only keep directories that contain "Wave"
         prior_pickles = [pickle for pickle in prior_pickles if "Wave" in pickle]
+        # Fixes bug in pickle files :/ maybe
+        if not hasattr(pathlib, '_local'):
+            pathlib._local = types.ModuleType('pathlib._local')
+            sys.modules['pathlib._local'] = pathlib._local
 
         # Open last pickle and extract NROY and their names
         with open(prior_pickles[-1], "rb") as f:
